@@ -1,0 +1,404 @@
+{
+  "name": "Upwork Job Scraper",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        60,
+        160
+      ],
+      "id": "9102ba87-dde8-4b01-925e-fbf26b1a1c2f",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://upwork-jobs-api2.p.rapidapi.com/active-freelance-1h",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "Python developer"
+            },
+            {
+              "name": "limit",
+              "value": "200"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-rapidapi-host",
+              "value": "upwork-jobs-api2.p.rapidapi.com"
+            },
+            {
+              "name": "x-rapidapi-key",
+              "value": "0da0a12fb0mshef5ae5fd79dec6dp1065dfjsn347f0c8a0926"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        60
+      ],
+      "id": "f1802030-0795-40a6-bb8e-8b188e77868a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Job Title: {{ $json.title }}\nJob Description: {{ $json.description }}\nskills: {{ $json.skills }}\nBudget/Rate: {{ $json.budget }}\nFilter this job for relevance and provide your response in the specified JSON format.\n",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are an intelligent job filtering system for a specialist seeking projects in a specific domain. Your role is to evaluate job postings and determine whether they are highly aligned with the specialist’s core expertise and preferred work type.\n\nRELEVANT SKILLS & FOCUS AREAS (INCLUDE ONLY IF THE WORK CENTERS AROUND THEM):\n• [Insert primary tools, platforms, or technologies here]\n• [Insert main methods/processes/specialties, e.g., \"data modeling\", \"automation\", \"cloud infrastructure\"]\n• Work must focus on [core type of work] – building, configuring, optimizing, integrating, or managing [systems/platforms/tasks].\n\nNOT RELEVANT (EXCLUDE):\n• [Insert tools/tech or domains outside your expertise or interest]\n• Tasks that are mainly: [e.g., writing, marketing, research, graphics, data entry, etc.]\n• Very small or rush projects (e.g., <10 minutes, same-day delivery)\n• Jobs that only mention relevant tools incidentally (e.g., using Airtable just for storage while doing copywriting)\n\nFILTER CRITERIA:\nA job is only relevant if it is primarily about building, configuring, automating, integrating, or optimizing systems, workflows, or solutions within the areas of expertise. Mere usage of a tool isn’t sufficient.\n\nEXAMPLE RELEVANT PROJECTS:\n• [Insert real or ideal example projects that show scale, platform, and clear alignment with your work]\n\nOUTPUT FORMAT:\n{\n  \"result\": \"true/false\",\n  \"reason\": \"Brief explanation of why it matches or doesn’t match\",\n  \"icebreaker\": \"Short, confident intro message if relevant (empty string if not relevant)\"\n}\n\nICEBREAKER GUIDELINES (for relevant jobs only):\n• Start with: “Confident I’m the [person/expert] you’re looking for.”\n• Briefly reference specific experience that matches their platform or use case\n• If possible, mention scale/results to show impact (e.g., “$10M project”, “500+ SKUs”, “automated 12 tools”)\n• Tailor based on what the job emphasizes (platform, business type, goal)\n\n"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        60
+      ],
+      "id": "e8db505d-f72f-4148-9e1d-19a0626b0c40",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const job = item.json;\n\n// Convert skills to comma-separated string\nconst skills = job.skills?.map(s => s.name).join(', ') || 'N/A';\n\n// Extract budget\nlet budget = '';\nif (job.project_budget_total) {\n  budget = `$${job.project_budget_total} ${job.project_budget_currency} (Fixed)`;\n} else if (job.project_budget_hourly_min && job.project_budget_hourly_max) {\n  budget = `$${job.project_budget_hourly_min}–$${job.project_budget_hourly_max} ${job.project_budget_currency} (Hourly)`;\n} else if (job.project_budget_hourly_min) {\n  budget = `From $${job.project_budget_hourly_min} ${job.project_budget_currency} (Hourly)`;\n} else if (job.project_budget_hourly_max) {\n  budget = `Up to $${job.project_budget_hourly_max} ${job.project_budget_currency} (Hourly)`;\n} else {\n  budget = 'Not specified';\n}\n\nreturn {\n  json: {\n    title: job.title || 'N/A',\n    description: job.description_text || 'N/A',\n    skills: skills,\n    budget: budget,\n    client: `${job.client_city || 'N/A'}, ${job.client_country || 'N/A'}`,\n    location: job.client_timezone || 'N/A',\n    url: job.url || 'N/A',\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        60
+      ],
+      "id": "659fe55e-b9a3-4fd1-9c7a-f6d167bfe3f8",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        720,
+        260
+      ],
+      "id": "9f6e2421-059e-490a-9645-498d91d51ad6",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "VEG8kPYBltdePgAk",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"result\": \"true/false\",\n  \"reason\": \"Brief explanation of why it matches or doesn’t match\",\n  \"icebreaker\": \"Short, confident intro message if relevant (empty string if not relevant)\"\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        260
+      ],
+      "id": "461c5e55-156c-429a-b9cb-38e6c4895d14",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appu2gtAhVDzRG5Mp",
+          "mode": "list",
+          "cachedResultName": "Upwork Scraped job",
+          "cachedResultUrl": "https://airtable.com/appu2gtAhVDzRG5Mp"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblafKEJNYwEPdAxC",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/appu2gtAhVDzRG5Mp/tblafKEJNYwEPdAxC"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Job Title": "={{ $('Code').item.json.title }}",
+            "Job description": "={{ $('Code').item.json.description }}",
+            "Skills": "={{ $('Code').item.json.skills }}",
+            "Budget": "={{ $('Code').item.json.budget }}",
+            "client location": "={{ $('Code').item.json.client }},{{ $('Code').item.json.location }}",
+            "url": "={{ $('Code').item.json.url }}",
+            "Status": "found"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Job Title",
+              "displayName": "Job Title",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Job description",
+              "displayName": "Job description",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "client location",
+              "displayName": "client location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "found",
+                  "value": "found"
+                },
+                {
+                  "name": "applied",
+                  "value": "applied"
+                },
+                {
+                  "name": "reached",
+                  "value": "reached"
+                },
+                {
+                  "name": "not reached",
+                  "value": "not reached"
+                },
+                {
+                  "name": "In progress",
+                  "value": "In progress"
+                },
+                {
+                  "name": "Done",
+                  "value": "Done"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1096,
+        60
+      ],
+      "id": "fb37bd9c-ad24-469a-bdec-59cc40a1b722",
+      "name": "Airtable1",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "zb5lcbIPtAFJU9Yt",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# **AUTOMATED UPWORK JOBS SCRAPER**\n## *This Scrapes you the relevant jobs from Upwork based on your Query parameter*",
+        "height": 560,
+        "width": 1620
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -120,
+        -160
+      ],
+      "typeVersion": 1,
+      "id": "39e18656-bfbf-4f6d-b501-b525a0a9f1d8",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "daysInterval": 3
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        60,
+        -40
+      ],
+      "id": "1a9dc648-4ac2-4388-9cd8-f114219518c2",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Airtable1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1b5558dc-1a4b-4d7e-be48-175a97b60b8f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3f4020699a9239a2c12041399633ec085ef234728319f5e7e2ec9b0af560314f"
+  },
+  "id": "Xeb57C14XZSaQtLA",
+  "tags": []
+}
