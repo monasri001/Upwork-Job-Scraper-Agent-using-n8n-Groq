@@ -5,6 +5,9 @@ This workflow automatically fetches Upwork jobs, filters them for relevance usin
 
 ---
 
+<img width="1663" height="894" alt="image" src="https://github.com/user-attachments/assets/44f4da52-8946-47ce-804f-cc3771c6bd42" />
+
+
 ## 📌 Features
 
 ### ✅ 1. Automated Upwork Job Scraping  
